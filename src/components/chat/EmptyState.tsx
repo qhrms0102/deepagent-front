@@ -1,3 +1,4 @@
+// Empty conversation state with starter prompt shortcuts.
 import type React from "react";
 
 interface EmptyStateProps {

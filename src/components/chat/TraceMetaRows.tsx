@@ -1,3 +1,4 @@
+// Compact metadata rows for trace input/output summaries.
 import { FiArrowRight, FiCornerDownRight } from "react-icons/fi";
 
 const getTraceMetaIcon = (label: string) => {

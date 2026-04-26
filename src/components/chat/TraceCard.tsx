@@ -1,3 +1,4 @@
+// Shared trace card for live trace and completed work history.
 import { TraceMetaRows } from "./TraceMetaRows";
 import type { TraceItem } from "../../types/chat";
 import {

@@ -1,3 +1,4 @@
+// Floating tooltip for collapsed sidebar icon actions.
 import type { SidebarTooltip as SidebarTooltipData } from "../../types/chat";
 
 interface SidebarTooltipProps {

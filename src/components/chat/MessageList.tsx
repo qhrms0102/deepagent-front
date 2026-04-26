@@ -1,3 +1,4 @@
+// Renders the user/assistant message timeline and trace sections.
 import type React from "react";
 import ReactMarkdown from "react-markdown";
 import { FiList } from "react-icons/fi";

@@ -1,3 +1,4 @@
+// Collapsible session sidebar with session list and quick actions.
 import { GiBatBlade } from "react-icons/gi";
 import { FiChevronLeft, FiChevronRight, FiEdit3, FiTrash2 } from "react-icons/fi";
 import type { SessionSummary } from "../../types/chat";

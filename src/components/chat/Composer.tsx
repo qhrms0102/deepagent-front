@@ -1,3 +1,4 @@
+// Chat input composer with submit/pause control.
 import type React from "react";
 import { FiArrowUp, FiPause } from "react-icons/fi";
 
