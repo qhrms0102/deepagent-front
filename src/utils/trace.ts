@@ -269,7 +269,7 @@ export const buildTraceCards = (traces: TraceItem[]) => {
   const toolCardIndexByCallId = new Map<string, number>();
 
   for (const trace of traces) {
-    if (trace.kind?.startsWith("tool_")) {
+    if (trace.kind?.startsWith("tool_") && trace.name !== "task") {
       const key = trace.call_id || trace.id;
       const existingIndex = toolCardIndexByCallId.get(key);
 
