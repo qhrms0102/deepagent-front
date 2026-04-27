@@ -10,6 +10,8 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 export const traceKindClassName = {
   subagent: "bg-sky-100 text-sky-900 ring-1 ring-inset ring-sky-300/80",
   tool: "bg-violet-100 text-violet-900 ring-1 ring-inset ring-violet-300/80",
+  chain: "bg-emerald-100 text-emerald-900 ring-1 ring-inset ring-emerald-300/80",
+  retriever: "bg-amber-100 text-amber-900 ring-1 ring-inset ring-amber-300/80",
 };
 
 export const tracePhaseClassName =
@@ -109,32 +111,44 @@ export const getTraceAgentBadge = (trace: TraceItem) => {
     return null;
   }
 
-  if (trace.agent_name && trace.agent_name !== "main-agent") {
+  if (getTraceKind(trace) === "tool" && trace.agent_name && trace.agent_name !== "main-agent") {
     return `via ${trace.agent_name}`;
   }
 
   return null;
 };
 
-export const getTraceKind = (trace: TraceItem): "subagent" | "tool" => {
+export const getTraceKind = (trace: TraceItem): "subagent" | "tool" | "chain" | "retriever" => {
   if (trace.name === "task") {
     return "subagent";
+  }
+
+  if (trace.kind?.startsWith("chain_")) {
+    return "chain";
+  }
+
+  if (trace.kind?.startsWith("retriever_")) {
+    return "retriever";
   }
 
   return "tool";
 };
 
 export const getTracePhaseLabel = (trace: TraceItem) => {
-  if (trace.name !== "task") {
-    return null;
-  }
-
-  if (trace.kind === "tool_end") {
+  if (trace.kind?.endsWith("_end")) {
     return "결과";
   }
 
   if (trace.status === "error") {
     return "오류";
+  }
+
+  if (trace.kind?.endsWith("_start")) {
+    return trace.kind.startsWith("chain_") ? "지시" : "시작";
+  }
+
+  if (trace.name !== "task") {
+    return null;
   }
 
   return "지시";
@@ -163,11 +177,27 @@ export const getTracePrimaryText = (trace: TraceItem) => {
   }
 
   if (trace.status === "running") {
+    if (trace.kind?.startsWith("chain_")) {
+      return inputSummary || "그래프 단계에 진입했습니다.";
+    }
+
+    if (trace.kind?.startsWith("retriever_")) {
+      return inputSummary || "문서를 검색하고 있습니다.";
+    }
+
     return inputSummary || "도구를 호출하고 있습니다.";
   }
 
   if (trace.status === "error") {
     return trace.summary || inputSummary || "호출에 실패했습니다.";
+  }
+
+  if (trace.kind?.startsWith("chain_")) {
+    return outputSummary || trace.summary || "그래프 단계가 완료되었습니다.";
+  }
+
+  if (trace.kind?.startsWith("retriever_")) {
+    return outputSummary || trace.summary || "문서 검색이 완료되었습니다.";
   }
 
   return outputSummary || trace.summary || "호출이 완료되었습니다.";
@@ -213,31 +243,55 @@ export const getTraceMetaItems = (trace: TraceItem) => {
   return items.slice(0, 2);
 };
 
+const isStartEndPair = (startTrace: TraceItem, endTrace: TraceItem) => {
+  if (!startTrace.kind?.endsWith("_start") || !endTrace.kind?.endsWith("_end")) {
+    return false;
+  }
+
+  const startPrefix = startTrace.kind.replace(/_start$/, "");
+  const endPrefix = endTrace.kind.replace(/_end$/, "");
+
+  return startPrefix === endPrefix && (startTrace.call_id || startTrace.id) === (endTrace.call_id || endTrace.id);
+};
+
+const mergeTracePair = (startTrace: TraceItem, endTrace: TraceItem): TraceItem => ({
+  ...startTrace,
+  ...endTrace,
+  input: startTrace.input ?? endTrace.input,
+  output: endTrace.output ?? startTrace.output,
+  summary: endTrace.summary ?? startTrace.summary,
+  detail: endTrace.detail ?? startTrace.detail,
+  timestamp: startTrace.timestamp,
+});
+
 export const buildTraceCards = (traces: TraceItem[]) => {
-  const cardMap = new Map<string, TraceItem>();
+  const cards: TraceItem[] = [];
+  const toolCardIndexByCallId = new Map<string, number>();
 
   for (const trace of traces) {
-    const key =
-      trace.name === "task" && trace.kind
-        ? `${trace.call_id || trace.id}:${trace.kind}`
-        : trace.call_id || trace.id;
-    const existing = cardMap.get(key);
+    if (trace.kind?.startsWith("tool_")) {
+      const key = trace.call_id || trace.id;
+      const existingIndex = toolCardIndexByCallId.get(key);
 
-    if (!existing) {
-      cardMap.set(key, { ...trace });
+      if (existingIndex !== undefined) {
+        cards[existingIndex] = mergeTracePair(cards[existingIndex], trace);
+        continue;
+      }
+
+      toolCardIndexByCallId.set(key, cards.length);
+      cards.push({ ...trace });
       continue;
     }
 
-    cardMap.set(key, {
-      ...existing,
-      ...trace,
-      input: trace.input ?? existing.input,
-      output: trace.output ?? existing.output,
-      summary: trace.summary ?? existing.summary,
-      detail: trace.detail ?? existing.detail,
-      timestamp: existing.timestamp,
-    });
+    const previous = cards[cards.length - 1];
+
+    if (previous && isStartEndPair(previous, trace)) {
+      cards[cards.length - 1] = mergeTracePair(previous, trace);
+      continue;
+    }
+
+    cards.push({ ...trace });
   }
 
-  return Array.from(cardMap.values()).sort((a, b) => a.timestamp - b.timestamp);
+  return cards.sort((a, b) => a.timestamp - b.timestamp);
 };

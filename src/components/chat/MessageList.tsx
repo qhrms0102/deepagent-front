@@ -16,7 +16,7 @@ export function MessageList({ messages, reasoningRefs }: MessageListProps) {
   return (
     <div className="mx-auto w-full max-w-4xl space-y-4">
       {messages.map((message) => {
-        const traceCards = buildTraceCards(message.traces || []);
+        const traceCards = message.isStreaming ? message.traces || [] : buildTraceCards(message.traces || []);
         const currentTrace = traceCards[traceCards.length - 1];
 
         return (
