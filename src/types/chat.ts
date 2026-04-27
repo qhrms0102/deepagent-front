@@ -25,6 +25,7 @@ export interface Message {
 export interface StoredMessage {
   role: "user" | "assistant";
   content: string;
+  traces?: TraceItem[];
 }
 
 export interface SessionSummary {
